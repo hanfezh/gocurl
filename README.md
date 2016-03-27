@@ -1,2 +1,2 @@
 # gocurl
-Access and use libcurl using a Go binding.
+Access and use [libcurl](https://curl.haxx.se/libcurl) using a Go binding.
