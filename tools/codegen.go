@@ -5,18 +5,6 @@ import "os"
 import "bufio"
 import "regexp"
 
-func handleOpt(re *regexp.Regexp, line string, output *os.File) bool {
-	substr := re.FindStringSubmatch(line)
-	if len(substr) != 4 {
-		// fmt.Printf("FindStringSubmatch failed: %v\n", substr)
-		return false
-	}
-
-	// fmt.Printf("%v, %v, %v\n", substr[1], substr[2], substr[3])
-	fmt.Fprintf(output, "    CURLOPT_%-20v = C.CURLOPT_%v\n", substr[1], substr[1])
-	return true
-}
-
 func handleFile(inPath string, outPath string) int {
 	// CINIT(WRITEDATA, OBJECTPOINT, 1),
 	optStr := `\s*CINIT\(\s*([_\dA-Z]+)\s*,\s*(LONG|OBJECTPOINT|STRINGPOINT|FUNCTIONPOINT|OFF_T)\s*,\s*([\d]+)\s*\)\s*,\s*`
@@ -28,8 +16,15 @@ func handleFile(inPath string, outPath string) int {
 
 	// CURLE_OK = 0,
 	// CURLE_UNSUPPORTED_PROTOCOL,    /* 1 */
-	// protoRe, err := regexp.Compile(`^\s*CURLE_([A-Z]+)\s*,`)
+	// codeRe, err := regexp.Compile(`^\s*CURLE_([A-Z]+)\s*,`)
 	codeRe, err := regexp.Compile(`^\s*(CURLE_[_A-Z]+)\s*(=\s*[\d]+)?,`)
+	if err != nil {
+		fmt.Printf("Compile failed, %v\n", err)
+		return -1
+	}
+
+	// #define CURLPROTO_HTTP   (1<<0)
+	protRe, err := regexp.Compile(`^\s*#define\s+(CURLPROTO_[_\dA-Z]+)\s+\(`)
 	if err != nil {
 		fmt.Printf("Compile failed, %v\n", err)
 		return -1
@@ -44,6 +39,7 @@ func handleFile(inPath string, outPath string) int {
 
 	var opts []string
 	var codes []string
+	var protos []string
 
 	for {
 		line, _, err := reader.ReadLine()
@@ -60,6 +56,9 @@ func handleFile(inPath string, outPath string) int {
 		} else if codeRe.Match(line) {
 			substr := codeRe.FindStringSubmatch(string(line))
 			codes = append(codes, substr[1])
+		} else if protRe.Match(line) {
+			substr := protRe.FindStringSubmatch(string(line))
+			protos = append(protos, substr[1])
 		}
 	}
 
@@ -87,6 +86,14 @@ func handleFile(inPath string, outPath string) int {
 	writer.WriteString("const (\n")
 	for _, code := range codes {
 		fmt.Fprintf(writer, "    %-30v = C.%v\n", code, code)
+	}
+	writer.WriteString(")\n\n")
+
+	// Handle CURLPROTO_XXX
+	writer.WriteString("// CURLPROTO_XXX\n")
+	writer.WriteString("const (\n")
+	for _, proto := range protos {
+		fmt.Fprintf(writer, "    %-30v = C.%v\n", proto, proto)
 	}
 	writer.WriteString(")\n")
 
