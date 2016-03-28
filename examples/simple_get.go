@@ -3,7 +3,7 @@ package main
 import "fmt"
 import "gocurl/curl"
 
-func myWriteFunction(data []byte, userdata interface{}) int {
+func myWriteFunc(data []byte, userdata interface{}) int {
 	// fmt.Printf("Get data: type = %T, len = %d\n", data, len(data))
 	// fmt.Printf("Data data: %v\n", string(data))
 	return len(data)
@@ -21,7 +21,7 @@ func main() {
 	defer easy.EasyCleanup()
 
 	easy.EasySetopt(curl.CURLOPT_URL, url)
-	easy.EasySetopt(curl.CURLOPT_WRITEFUNCTION, myWriteFunction)
+	easy.EasySetopt(curl.CURLOPT_WRITEFUNCTION, myWriteFunc)
 	easy.EasySetopt(curl.CURLOPT_VERBOSE, 1)
 	// curl.EasySetopt(CURLOPT_HEADER, 1)
 	// curl.EasySetopt(CURLOPT_NOPROGRESS, 0)

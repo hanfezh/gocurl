@@ -25,6 +25,7 @@ static CURLcode curl_easy_setopt_ptr(CURL *handle, CURLoption option, void *para
 
 extern size_t goWriteCallback(char *buffer, size_t size, size_t nmemb, void *userdata);
 extern size_t goReadCallback(char *buffer, size_t size, size_t nmemb, void *instream);
+extern size_t goHeaderCallback(char *buffer, size_t size, size_t nmemb, void *userdata);
 
 static size_t curl_write_func_wrap(char *buffer, size_t size, size_t nmemb, void *userdata)
 {
@@ -38,6 +39,11 @@ static size_t curl_read_func_wrap(char *buffer, size_t size, size_t nmemb, void 
 	return goReadCallback(buffer, size, nmemb, instream);
 }
 
+static size_t curl_header_func_wrap(char *buffer, size_t size, size_t nmemb, void *userdata)
+{
+	return goHeaderCallback(buffer, size, nmemb, userdata);
+}
+
 static void *curl_write_func()
 {
 	return (void *)&curl_write_func_wrap;
@@ -46,6 +52,11 @@ static void *curl_write_func()
 static void *curl_read_func()
 {
 	return (void *)&curl_read_func_wrap;
+}
+
+static void *curl_header_func()
+{
+	return (void *)&curl_header_func_wrap;
 }
 */
 import "C"
@@ -63,11 +74,13 @@ const (
 type CURL struct {
 	ptr unsafe.Pointer
 	// curl_slist
-	headers       []unsafe.Pointer
-	writeData     interface{}
-	readData      interface{}
-	writeFunction *func([]byte, interface{}) int
-	readFunction  *func([]byte, interface{}) int
+	headers    []unsafe.Pointer
+	writeData  interface{}
+	readData   interface{}
+	headerData interface{}
+	writeFunc  *func([]byte, interface{}) int
+	readFunc   *func([]byte, interface{}) int
+	headerFunc *func([]byte, interface{}) int
 }
 
 var curlMap = make(map[unsafe.Pointer]*CURL)
@@ -97,7 +110,7 @@ func (curl *CURL) EasySetopt(opt int, arg interface{}) int {
 
 	case opt == CURLOPT_WRITEFUNCTION:
 		fun := arg.(func([]byte, interface{}) int)
-		curl.writeFunction = &fun
+		curl.writeFunc = &fun
 		ptr := C.curl_write_func()
 		C.curl_easy_setopt_ptr(curl.ptr, C.CURLOPT_WRITEFUNCTION, ptr)
 		C.curl_easy_setopt_ptr(curl.ptr, C.CURLOPT_WRITEDATA, curl.ptr)
@@ -107,10 +120,20 @@ func (curl *CURL) EasySetopt(opt int, arg interface{}) int {
 
 	case opt == CURLOPT_READFUNCTION:
 		fun := arg.(func([]byte, interface{}) int)
-		curl.readFunction = &fun
+		curl.readFunc = &fun
 		ptr := C.curl_read_func()
 		C.curl_easy_setopt_ptr(curl.ptr, C.CURLOPT_READFUNCTION, ptr)
 		C.curl_easy_setopt_ptr(curl.ptr, C.CURLOPT_READDATA, curl.ptr)
+
+	case opt == CURLOPT_HEADERDATA:
+		curl.headerData = arg
+
+	case opt == CURLOPT_HEADERFUNCTION:
+		fun := arg.(func([]byte, interface{}) int)
+		curl.headerFunc = &fun
+		ptr := C.curl_header_func()
+		C.curl_easy_setopt_ptr(curl.ptr, C.CURLOPT_HEADERFUNCTION, ptr)
+		C.curl_easy_setopt_ptr(curl.ptr, C.CURLOPT_HEADERDATA, curl.ptr)
 
 	case opt >= CURLOPTTYPE_OFF_T:
 		val := C.off_t(0)
@@ -209,7 +232,7 @@ func goWriteCallback(buffer *C.char, size C.size_t, nmemb C.size_t, userdata uns
 	curl := curlMap[userdata]
 	// fmt.Printf("curl: %T, %v\n", curl, curl)
 	buf := C.GoBytes(unsafe.Pointer(buffer), C.int(size*nmemb))
-	return C.size_t((*curl.writeFunction)(buf, curl.writeData))
+	return C.size_t((*curl.writeFunc)(buf, curl.writeData))
 }
 
 //export goReadCallback
@@ -217,9 +240,18 @@ func goReadCallback(buffer *C.char, size C.size_t, nmemb C.size_t, instream unsa
 	curl := curlMap[instream]
 	// fmt.Printf("curl: %T, %v\n", curl, curl)
 	var buf []byte
-	len := (*curl.readFunction)(buf, curl.readData)
+	len := (*curl.readFunc)(buf, curl.readData)
 	str := C.CString(string(buf))
 	defer C.free(unsafe.Pointer(str))
 	C.memcpy(unsafe.Pointer(buffer), unsafe.Pointer(str), C.size_t(len))
 	return C.size_t(len)
+}
+
+//export goHeaderCallback
+func goHeaderCallback(buffer *C.char, size C.size_t, nmemb C.size_t, userdata unsafe.Pointer) C.size_t {
+	// fmt.Printf("userdata: %T, %v\n", userdata, userdata)
+	curl := curlMap[userdata]
+	// fmt.Printf("curl: %T, %v\n", curl, curl)
+	buf := C.GoBytes(unsafe.Pointer(buffer), C.int(size*nmemb))
+	return C.size_t((*curl.headerFunc)(buf, curl.headerData))
 }
