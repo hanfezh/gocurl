@@ -100,9 +100,10 @@ func (curl *CURL) EasyInit() int {
 }
 
 func (curl *CURL) EasySetopt(opt int, arg interface{}) int {
-	// if arg == nil {
-	// 	return -1
-	// }
+	if arg == nil {
+		C.curl_easy_setopt_ptr(curl.ptr, C.CURLoption(opt), unsafe.Pointer(nil))
+		return 0
+	}
 
 	switch {
 	case opt == CURLOPT_WRITEDATA:

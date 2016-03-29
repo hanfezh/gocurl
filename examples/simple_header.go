@@ -1,10 +1,15 @@
 package main
 
 import "fmt"
-import "gocurl/curl"
+import "github.com/ufengzhu/gocurl/curl"
 
 func myHeaderFunc(data []byte, userdata interface{}) int {
 	fmt.Printf("Recv headers: %v", string(data))
+	return len(data)
+}
+
+func myWriteFunc(data []byte, userdata interface{}) int {
+	// Ignore output to stdout
 	return len(data)
 }
 
@@ -19,8 +24,9 @@ func main() {
 	defer easy.EasyCleanup()
 
 	easy.EasySetopt(curl.CURLOPT_URL, url)
-	easy.EasySetopt(curl.CURLOPT_VERBOSE, 1)
+	// easy.EasySetopt(curl.CURLOPT_VERBOSE, 1)
 	easy.EasySetopt(curl.CURLOPT_HEADERFUNCTION, myHeaderFunc)
+	easy.EasySetopt(curl.CURLOPT_WRITEFUNCTION, myWriteFunc)
 
 	ret = easy.EasyPerform()
 	fmt.Printf("EasyPerform return %d\n", ret)
