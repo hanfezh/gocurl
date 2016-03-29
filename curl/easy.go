@@ -227,6 +227,11 @@ func (curl *CURL) EasyCleanup() {
 	curl.ptr = nil
 }
 
+func (curl *CURL) EasyGetinfo(info int) (ret interface{}, err error) {
+	// TODO
+	return nil, nil
+}
+
 //export goWriteCallback
 func goWriteCallback(buffer *C.char, size C.size_t, nmemb C.size_t, userdata unsafe.Pointer) C.size_t {
 	// fmt.Printf("userdata: %T, %v\n", userdata, userdata)

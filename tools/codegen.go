@@ -30,6 +30,14 @@ func handleFile(inPath string, outPath string) int {
 		return -1
 	}
 
+	// CURLINFO_EFFECTIVE_URL    = CURLINFO_STRING + 1,
+	// infoRe, err := regexp.Compile(`^\s*(CURLINFO_[_\dA-Z]+)\s*=\s*CURLINFO_(STRING|LONG|DOUBLE|SLIST|SOCKET)\s*`)
+	infoRe, err := regexp.Compile(`^\s*(CURLINFO_[_\dA-Z]+)\s*=\s*CURLINFO_(STRING|LONG|DOUBLE|SLIST|SOCKET)\s*\+\s*\d+,`)
+	if err != nil {
+		fmt.Printf("Compile failed, %v\n", err)
+		return -1
+	}
+
 	input, err := os.Open(inPath)
 	if err != nil {
 		fmt.Printf("Open failed, %v\n", err)
@@ -40,6 +48,7 @@ func handleFile(inPath string, outPath string) int {
 	var opts []string
 	var codes []string
 	var protos []string
+	var infos []string
 
 	for {
 		line, _, err := reader.ReadLine()
@@ -59,6 +68,9 @@ func handleFile(inPath string, outPath string) int {
 		} else if protRe.Match(line) {
 			substr := protRe.FindStringSubmatch(string(line))
 			protos = append(protos, substr[1])
+		} else if infoRe.Match(line) {
+			substr := infoRe.FindStringSubmatch(string(line))
+			infos = append(infos, substr[1])
 		}
 	}
 
@@ -95,7 +107,15 @@ func handleFile(inPath string, outPath string) int {
 	for _, proto := range protos {
 		fmt.Fprintf(writer, "    %-30v = C.%v\n", proto, proto)
 	}
-	writer.WriteString(")\n")
+	writer.WriteString(")\n\n")
+
+	// Handle CURLINFO_XXX
+	writer.WriteString("// CURLINFO_XXX\n")
+	writer.WriteString("const (\n")
+	for _, info := range infos {
+		fmt.Fprintf(writer, "    %-30v = C.%v\n", info, info)
+	}
+	writer.WriteString(")\n\n")
 
 	return 0
 }
