@@ -23,6 +23,22 @@ static CURLcode curl_easy_setopt_ptr(CURL *handle, CURLoption option, void *para
 	return curl_easy_setopt(handle, option, param);
 }
 
+static CURLcode curl_easy_getinfo_str(CURL *handle, CURLINFO info, char **str) {
+	return curl_easy_getinfo(handle, info, str);
+}
+
+static CURLcode curl_easy_getinfo_long(CURL *handle, CURLINFO info, long *val) {
+	return curl_easy_getinfo(handle, info, val);
+}
+
+static CURLcode curl_easy_getinfo_double(CURL *handle, CURLINFO info, double *val) {
+	return curl_easy_getinfo(handle, info, val);
+}
+
+static CURLcode curl_easy_getinfo_slist(CURL *handle, CURLINFO info, struct curl_slist **val) {
+	return curl_easy_getinfo(handle, info, val);
+}
+
 extern size_t goWriteCallback(char *buffer, size_t size, size_t nmemb, void *userdata);
 extern size_t goReadCallback(char *buffer, size_t size, size_t nmemb, void *instream);
 extern size_t goHeaderCallback(char *buffer, size_t size, size_t nmemb, void *userdata);
@@ -64,11 +80,21 @@ import "fmt"
 import "unsafe"
 
 const (
-	CURLOPTTYPE_LONG        = C.CURLOPTTYPE_LONG
-	CURLOPTTYPE_OBJECTPOINT = C.CURLOPTTYPE_OBJECTPOINT
-	// CURLOPTTYPE_STRINGPOINT   = C.CURLOPTTYPE_STRINGPOINT
-	CURLOPTTYPE_FUNCTIONPOINT = C.CURLOPTTYPE_FUNCTIONPOINT
-	CURLOPTTYPE_OFF_T         = C.CURLOPTTYPE_OFF_T
+	OPTTYPE_LONG        = C.CURLOPTTYPE_LONG
+	OPTTYPE_OBJECTPOINT = C.CURLOPTTYPE_OBJECTPOINT
+	// OPTTYPE_STRINGPOINT   = C.CURLOPTTYPE_STRINGPOINT
+	OPTTYPE_FUNCTIONPOINT = C.CURLOPTTYPE_FUNCTIONPOINT
+	OPTTYPE_OFF_T         = C.CURLOPTTYPE_OFF_T
+)
+
+const (
+	INFO_STRING = C.CURLINFO_STRING
+	INFO_LONG   = C.CURLINFO_LONG
+	INFO_DOUBLE = C.CURLINFO_DOUBLE
+	INFO_SLIST  = C.CURLINFO_SLIST
+	// INFO_SOCKET  = C.CURLINFO_SOCKET
+	INFO_MASK    = C.CURLINFO_MASK
+	INFO_TYPEMAK = C.CURLINFO_TYPEMASK
 )
 
 type CURL struct {
@@ -106,37 +132,37 @@ func (curl *CURL) EasySetopt(opt int, arg interface{}) int {
 	}
 
 	switch {
-	case opt == CURLOPT_WRITEDATA:
+	case opt == OPT_WRITEDATA:
 		curl.writeData = arg
 
-	case opt == CURLOPT_WRITEFUNCTION:
+	case opt == OPT_WRITEFUNCTION:
 		fun := arg.(func([]byte, interface{}) int)
 		curl.writeFunc = &fun
 		ptr := C.curl_write_func()
 		C.curl_easy_setopt_ptr(curl.ptr, C.CURLOPT_WRITEFUNCTION, ptr)
 		C.curl_easy_setopt_ptr(curl.ptr, C.CURLOPT_WRITEDATA, curl.ptr)
 
-	case opt == CURLOPT_READDATA:
+	case opt == OPT_READDATA:
 		curl.readData = arg
 
-	case opt == CURLOPT_READFUNCTION:
+	case opt == OPT_READFUNCTION:
 		fun := arg.(func([]byte, interface{}) int)
 		curl.readFunc = &fun
 		ptr := C.curl_read_func()
 		C.curl_easy_setopt_ptr(curl.ptr, C.CURLOPT_READFUNCTION, ptr)
 		C.curl_easy_setopt_ptr(curl.ptr, C.CURLOPT_READDATA, curl.ptr)
 
-	case opt == CURLOPT_HEADERDATA:
+	case opt == OPT_HEADERDATA:
 		curl.headerData = arg
 
-	case opt == CURLOPT_HEADERFUNCTION:
+	case opt == OPT_HEADERFUNCTION:
 		fun := arg.(func([]byte, interface{}) int)
 		curl.headerFunc = &fun
 		ptr := C.curl_header_func()
 		C.curl_easy_setopt_ptr(curl.ptr, C.CURLOPT_HEADERFUNCTION, ptr)
 		C.curl_easy_setopt_ptr(curl.ptr, C.CURLOPT_HEADERDATA, curl.ptr)
 
-	case opt >= CURLOPTTYPE_OFF_T:
+	case opt >= OPTTYPE_OFF_T:
 		val := C.off_t(0)
 		switch arg.(type) {
 		case int:
@@ -150,12 +176,12 @@ func (curl *CURL) EasySetopt(opt int, arg interface{}) int {
 		}
 		C.curl_easy_setopt_off_t(curl.ptr, C.CURLoption(opt), val)
 
-	case opt >= CURLOPTTYPE_FUNCTIONPOINT:
+	case opt >= OPTTYPE_FUNCTIONPOINT:
 		fmt.Printf("Not implemented, %T, %v\n", arg, arg)
 
-	// case opt >= CURLOPTTYPE_STRINGPOINT:
-	case opt >= CURLOPTTYPE_OBJECTPOINT:
-		// CURLOPT_URL
+	// case opt >= OPTTYPE_STRINGPOINT:
+	case opt >= OPTTYPE_OBJECTPOINT:
+		// OPT_URL
 		switch arg.(type) {
 		case string:
 			cstr := C.CString(arg.(string))
@@ -163,7 +189,7 @@ func (curl *CURL) EasySetopt(opt int, arg interface{}) int {
 			C.curl_easy_setopt_str(curl.ptr, C.CURLoption(opt), cstr)
 
 		case []string:
-			// e.g. CURLOPT_HTTPHEADER
+			// e.g. OPT_HTTPHEADER
 			var list *C.struct_curl_slist = nil
 
 			headers := arg.([]string)
@@ -183,13 +209,13 @@ func (curl *CURL) EasySetopt(opt int, arg interface{}) int {
 			fmt.Printf("Not implemented, %T, %v\n", arg, arg)
 		}
 
-	case opt >= CURLOPTTYPE_LONG:
-		// CURLOPT_VERBOSE
-		// CURLOPT_HEADER
-		// CURLOPT_NOPROGRESS
-		// CURLOPT_NOSIGNAL
-		// CURLOPT_WILDCARDMATCH
-		// CURLOPT_PROTOCOLS
+	case opt >= OPTTYPE_LONG:
+		// OPT_VERBOSE
+		// OPT_HEADER
+		// OPT_NOPROGRESS
+		// OPT_NOSIGNAL
+		// OPT_WILDCARDMATCH
+		// OPT_PROTOCOLS
 		val := C.long(0)
 		switch arg.(type) {
 		case int:
@@ -228,8 +254,52 @@ func (curl *CURL) EasyCleanup() {
 }
 
 func (curl *CURL) EasyGetinfo(info int) (ret interface{}, err error) {
-	// TODO
-	return nil, nil
+	switch info & INFO_TYPEMAK {
+	case INFO_STRING:
+		var str *C.char
+		code := C.curl_easy_getinfo_str(curl.ptr, C.CURLINFO(info), &str)
+		if code == C.CURLE_OK {
+			return C.GoString(str), nil
+		}
+
+	case INFO_LONG:
+		var val C.long
+		code := C.curl_easy_getinfo_long(curl.ptr, C.CURLINFO(info), &val)
+		if code == C.CURLE_OK {
+			return int(val), nil
+		}
+
+	case INFO_DOUBLE:
+		var val C.double
+		code := C.curl_easy_getinfo_double(curl.ptr, C.CURLINFO(info), &val)
+		if code == C.CURLE_OK {
+			return float64(val), nil
+		}
+
+	case INFO_SLIST:
+		var list *C.struct_curl_slist = nil
+		code := C.curl_easy_getinfo_slist(curl.ptr, C.CURLINFO(info), &list)
+		if code == C.CURLE_OK {
+			var tmp *C.struct_curl_slist = list
+			var ret []string
+
+			for tmp != nil {
+				ret = append(ret, C.GoString(tmp.data))
+				tmp = tmp.next
+			}
+			C.curl_slist_free_all(list)
+
+			return ret, nil
+		}
+
+	// case INFO_SOCKET:
+
+	default:
+		err = fmt.Errorf("Invalid info: %d", info)
+		return nil, err
+	}
+
+	return nil, fmt.Errorf("Failed to get info: %d", info)
 }
 
 //export goWriteCallback

@@ -17,14 +17,14 @@ func handleFile(inPath string, outPath string) int {
 	// CURLE_OK = 0,
 	// CURLE_UNSUPPORTED_PROTOCOL,    /* 1 */
 	// codeRe, err := regexp.Compile(`^\s*CURLE_([A-Z]+)\s*,`)
-	codeRe, err := regexp.Compile(`^\s*(CURLE_[_A-Z]+)\s*(=\s*[\d]+)?,`)
+	codeRe, err := regexp.Compile(`^\s*CURL(E_[_A-Z]+)\s*(=\s*[\d]+)?,`)
 	if err != nil {
 		fmt.Printf("Compile failed, %v\n", err)
 		return -1
 	}
 
 	// #define CURLPROTO_HTTP   (1<<0)
-	protRe, err := regexp.Compile(`^\s*#define\s+(CURLPROTO_[_\dA-Z]+)\s+\(`)
+	protRe, err := regexp.Compile(`^\s*#define\s+CURL(PROTO_[_\dA-Z]+)\s+\(`)
 	if err != nil {
 		fmt.Printf("Compile failed, %v\n", err)
 		return -1
@@ -32,7 +32,7 @@ func handleFile(inPath string, outPath string) int {
 
 	// CURLINFO_EFFECTIVE_URL    = CURLINFO_STRING + 1,
 	// infoRe, err := regexp.Compile(`^\s*(CURLINFO_[_\dA-Z]+)\s*=\s*CURLINFO_(STRING|LONG|DOUBLE|SLIST|SOCKET)\s*`)
-	infoRe, err := regexp.Compile(`^\s*(CURLINFO_[_\dA-Z]+)\s*=\s*CURLINFO_(STRING|LONG|DOUBLE|SLIST|SOCKET)\s*\+\s*\d+,`)
+	infoRe, err := regexp.Compile(`^\s*CURL(INFO_[_\dA-Z]+)\s*=\s*CURLINFO_(STRING|LONG|DOUBLE|SLIST|SOCKET)\s*\+\s*\d+,`)
 	if err != nil {
 		fmt.Printf("Compile failed, %v\n", err)
 		return -1
@@ -86,34 +86,34 @@ func handleFile(inPath string, outPath string) int {
 	writer.WriteString("import \"C\"\n\n")
 
 	// Handle CURLOPT_XXX
-	writer.WriteString("// CURLOPT_XXX\n")
+	writer.WriteString("// OPT_XXX\n")
 	writer.WriteString("const (\n")
 	for _, opt := range opts {
-		fmt.Fprintf(writer, "    CURLOPT_%-24v = C.CURLOPT_%v\n", opt, opt)
+		fmt.Fprintf(writer, "    OPT_%-24v = C.CURLOPT_%v\n", opt, opt)
 	}
 	writer.WriteString(")\n\n")
 
 	// Handle CURLE_XXX
-	writer.WriteString("// CURLE_XXX\n")
+	writer.WriteString("// E_XXX\n")
 	writer.WriteString("const (\n")
 	for _, code := range codes {
-		fmt.Fprintf(writer, "    %-30v = C.%v\n", code, code)
+		fmt.Fprintf(writer, "    %-30v = C.CURL%v\n", code, code)
 	}
 	writer.WriteString(")\n\n")
 
 	// Handle CURLPROTO_XXX
-	writer.WriteString("// CURLPROTO_XXX\n")
+	writer.WriteString("// PROTO_XXX\n")
 	writer.WriteString("const (\n")
 	for _, proto := range protos {
-		fmt.Fprintf(writer, "    %-30v = C.%v\n", proto, proto)
+		fmt.Fprintf(writer, "    %-30v = C.CURL%v\n", proto, proto)
 	}
 	writer.WriteString(")\n\n")
 
 	// Handle CURLINFO_XXX
-	writer.WriteString("// CURLINFO_XXX\n")
+	writer.WriteString("// INFO_XXX\n")
 	writer.WriteString("const (\n")
 	for _, info := range infos {
-		fmt.Fprintf(writer, "    %-30v = C.%v\n", info, info)
+		fmt.Fprintf(writer, "    %-30v = C.CURL%v\n", info, info)
 	}
 	writer.WriteString(")\n\n")
 

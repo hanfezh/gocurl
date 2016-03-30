@@ -23,11 +23,17 @@ func main() {
 	fmt.Printf("EasyInit return %d\n", ret)
 	defer easy.EasyCleanup()
 
-	easy.EasySetopt(curl.CURLOPT_URL, url)
-	// easy.EasySetopt(curl.CURLOPT_VERBOSE, 1)
-	easy.EasySetopt(curl.CURLOPT_HEADERFUNCTION, myHeaderFunc)
-	easy.EasySetopt(curl.CURLOPT_WRITEFUNCTION, myWriteFunc)
+	easy.EasySetopt(curl.OPT_URL, url)
+	// easy.EasySetopt(curl.OPT_VERBOSE, 1)
+	easy.EasySetopt(curl.OPT_HEADERFUNCTION, myHeaderFunc)
+	easy.EasySetopt(curl.OPT_WRITEFUNCTION, myWriteFunc)
 
 	ret = easy.EasyPerform()
 	fmt.Printf("EasyPerform return %d\n", ret)
+
+	eurl, err := easy.EasyGetinfo(curl.INFO_EFFECTIVE_URL)
+	fmt.Printf("eurl: %v, err: %v\n", eurl, err)
+
+	elist, err := easy.EasyGetinfo(curl.INFO_COOKIELIST)
+	fmt.Printf("elist: %v, err: %v\n", elist, err)
 }
