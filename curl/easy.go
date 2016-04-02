@@ -109,10 +109,39 @@ type CURL struct {
 	headerFunc *func([]byte, interface{}) int
 }
 
+type CURLError C.CURLcode
+
 var curlMap = make(map[unsafe.Pointer]*CURL)
 
 // curlMap := make(map[uintptr]*CURL)
 
+func (code CURLError) Error() string {
+	str := C.GoString(C.curl_easy_strerror(C.CURLcode(code)))
+	fmt.Printf("CURL error[%d]: %s\n", code, str)
+	return fmt.Sprintf("CURL error[%d]: %s", code, str)
+}
+
+func codeToError(code C.CURLcode) error {
+	if code != C.CURLE_OK {
+		return CURLError(code)
+	}
+
+	return nil
+}
+
+func NewEasy() *CURL {
+	ptr := C.curl_easy_init()
+	if ptr == nil {
+		return nil
+	}
+
+	curl := &CURL{}
+	curl.ptr = ptr
+	curlMap[curl.ptr] = curl
+	return curl
+}
+
+// Deprecated
 func (curl *CURL) EasyInit() int {
 	curl.ptr = C.curl_easy_init()
 	fmt.Printf("curl.ptr: %T %v\n", curl.ptr, curl.ptr)
@@ -125,10 +154,10 @@ func (curl *CURL) EasyInit() int {
 	return 0
 }
 
-func (curl *CURL) EasySetopt(opt int, arg interface{}) int {
+func (curl *CURL) EasySetopt(opt int, arg interface{}) error {
 	if arg == nil {
-		C.curl_easy_setopt_ptr(curl.ptr, C.CURLoption(opt), unsafe.Pointer(nil))
-		return 0
+		ret := C.curl_easy_setopt_ptr(curl.ptr, C.CURLoption(opt), unsafe.Pointer(nil))
+		return codeToError(ret)
 	}
 
 	switch {
@@ -139,8 +168,13 @@ func (curl *CURL) EasySetopt(opt int, arg interface{}) int {
 		fun := arg.(func([]byte, interface{}) int)
 		curl.writeFunc = &fun
 		ptr := C.curl_write_func()
-		C.curl_easy_setopt_ptr(curl.ptr, C.CURLOPT_WRITEFUNCTION, ptr)
-		C.curl_easy_setopt_ptr(curl.ptr, C.CURLOPT_WRITEDATA, curl.ptr)
+		ret := C.curl_easy_setopt_ptr(curl.ptr, C.CURLOPT_WRITEFUNCTION, ptr)
+		err := codeToError(ret)
+		if err != nil {
+			return err
+		}
+		ret = C.curl_easy_setopt_ptr(curl.ptr, C.CURLOPT_WRITEDATA, curl.ptr)
+		return codeToError(ret)
 
 	case opt == OPT_READDATA:
 		curl.readData = arg
@@ -149,8 +183,13 @@ func (curl *CURL) EasySetopt(opt int, arg interface{}) int {
 		fun := arg.(func([]byte, interface{}) int)
 		curl.readFunc = &fun
 		ptr := C.curl_read_func()
-		C.curl_easy_setopt_ptr(curl.ptr, C.CURLOPT_READFUNCTION, ptr)
-		C.curl_easy_setopt_ptr(curl.ptr, C.CURLOPT_READDATA, curl.ptr)
+		ret := C.curl_easy_setopt_ptr(curl.ptr, C.CURLOPT_READFUNCTION, ptr)
+		err := codeToError(ret)
+		if err != nil {
+			return err
+		}
+		ret = C.curl_easy_setopt_ptr(curl.ptr, C.CURLOPT_READDATA, curl.ptr)
+		return codeToError(ret)
 
 	case opt == OPT_HEADERDATA:
 		curl.headerData = arg
@@ -159,8 +198,13 @@ func (curl *CURL) EasySetopt(opt int, arg interface{}) int {
 		fun := arg.(func([]byte, interface{}) int)
 		curl.headerFunc = &fun
 		ptr := C.curl_header_func()
-		C.curl_easy_setopt_ptr(curl.ptr, C.CURLOPT_HEADERFUNCTION, ptr)
-		C.curl_easy_setopt_ptr(curl.ptr, C.CURLOPT_HEADERDATA, curl.ptr)
+		ret := C.curl_easy_setopt_ptr(curl.ptr, C.CURLOPT_HEADERFUNCTION, ptr)
+		err := codeToError(ret)
+		if err != nil {
+			return err
+		}
+		ret = C.curl_easy_setopt_ptr(curl.ptr, C.CURLOPT_HEADERDATA, curl.ptr)
+		return codeToError(ret)
 
 	case opt >= OPTTYPE_OFF_T:
 		val := C.off_t(0)
@@ -174,10 +218,11 @@ func (curl *CURL) EasySetopt(opt int, arg interface{}) int {
 		default:
 			fmt.Printf("Not implemented, %T, %v\n", arg, arg)
 		}
-		C.curl_easy_setopt_off_t(curl.ptr, C.CURLoption(opt), val)
+		ret := C.curl_easy_setopt_off_t(curl.ptr, C.CURLoption(opt), val)
+		return codeToError(ret)
 
 	case opt >= OPTTYPE_FUNCTIONPOINT:
-		fmt.Printf("Not implemented, %T, %v\n", arg, arg)
+		return fmt.Errorf("Not implemented: %d, %v", opt, arg)
 
 	// case opt >= OPTTYPE_STRINGPOINT:
 	case opt >= OPTTYPE_OBJECTPOINT:
@@ -186,7 +231,8 @@ func (curl *CURL) EasySetopt(opt int, arg interface{}) int {
 		case string:
 			cstr := C.CString(arg.(string))
 			defer C.free(unsafe.Pointer(cstr))
-			C.curl_easy_setopt_str(curl.ptr, C.CURLoption(opt), cstr)
+			ret := C.curl_easy_setopt_str(curl.ptr, C.CURLoption(opt), cstr)
+			return codeToError(ret)
 
 		case []string:
 			// e.g. OPT_HTTPHEADER
@@ -197,16 +243,21 @@ func (curl *CURL) EasySetopt(opt int, arg interface{}) int {
 				break
 			}
 			for _, header := range headers {
+				// fmt.Printf("Custom request header: %s\n", header)
 				hdr := C.CString(header)
 				defer C.free(unsafe.Pointer(hdr))
-				fmt.Printf("header: %T, %v\n", hdr, hdr)
+				// fmt.Printf("header: %T, %v\n", hdr, hdr)
 				list = C.curl_slist_append(list, hdr)
 			}
-			C.curl_easy_setopt_ptr(curl.ptr, C.CURLOPT_HTTPHEADER, unsafe.Pointer(list))
+			ret := C.curl_easy_setopt_ptr(curl.ptr, C.CURLOPT_HTTPHEADER, unsafe.Pointer(list))
+			err := codeToError(ret)
+			if err != nil {
+				return err
+			}
 			curl.headers = append(curl.headers, unsafe.Pointer(list))
 
 		default:
-			fmt.Printf("Not implemented, %T, %v\n", arg, arg)
+			return fmt.Errorf("Not implemented: %d, %v", opt, arg)
 		}
 
 	case opt >= OPTTYPE_LONG:
@@ -227,19 +278,22 @@ func (curl *CURL) EasySetopt(opt int, arg interface{}) int {
 		default:
 			fmt.Printf("Not implemented, %T, %v\n", arg, arg)
 		}
-		C.curl_easy_setopt_long(curl.ptr, C.CURLoption(opt), val)
+		ret := C.curl_easy_setopt_long(curl.ptr, C.CURLoption(opt), val)
+		// fmt.Printf("curl_easy_setopt_long return %d\n", ret)
+		return codeToError(ret)
 
 	default:
 		fmt.Printf("Invalid option: %d\n", opt)
-		return -1
+		return CURLError(E_UNKNOWN_OPTION)
 	}
 
-	return 0
+	return nil
 }
 
-func (curl *CURL) EasyPerform() int {
-	fmt.Printf("%T %v\n", curl.ptr, curl.ptr)
-	return int(C.curl_easy_perform(curl.ptr))
+func (curl *CURL) EasyPerform() error {
+	// fmt.Printf("%T %v\n", curl.ptr, curl.ptr)
+	ret := C.curl_easy_perform(curl.ptr)
+	return codeToError(ret)
 }
 
 func (curl *CURL) EasyCleanup() {

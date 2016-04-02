@@ -15,12 +15,8 @@ func myWriteFunc(data []byte, userdata interface{}) int {
 
 func main() {
 	var url string = "http://www.google.com"
-	var ret int = 0
 
-	var easy curl.CURL
-
-	ret = easy.EasyInit()
-	fmt.Printf("EasyInit return %d\n", ret)
+	easy := curl.NewEasy()
 	defer easy.EasyCleanup()
 
 	easy.EasySetopt(curl.OPT_URL, url)
@@ -28,8 +24,8 @@ func main() {
 	easy.EasySetopt(curl.OPT_HEADERFUNCTION, myHeaderFunc)
 	easy.EasySetopt(curl.OPT_WRITEFUNCTION, myWriteFunc)
 
-	ret = easy.EasyPerform()
-	fmt.Printf("EasyPerform return %d\n", ret)
+	err := easy.EasyPerform()
+	fmt.Printf("EasyPerform return %v\n", err)
 
 	eurl, err := easy.EasyGetinfo(curl.INFO_EFFECTIVE_URL)
 	fmt.Printf("eurl: %v, err: %v\n", eurl, err)
