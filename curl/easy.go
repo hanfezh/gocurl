@@ -1,5 +1,6 @@
 package curl
 
+// #cgo CFLAGS: -I/usr/include
 // #cgo LDFLAGS: -lcurl
 /*
 #include <stdio.h>
@@ -42,6 +43,7 @@ static CURLcode curl_easy_getinfo_slist(CURL *handle, CURLINFO info, struct curl
 extern size_t goWriteCallback(char *buffer, size_t size, size_t nmemb, void *userdata);
 extern size_t goReadCallback(char *buffer, size_t size, size_t nmemb, void *instream);
 extern size_t goHeaderCallback(char *buffer, size_t size, size_t nmemb, void *userdata);
+extern int goDebugCallback(curl_infotype type, char *data, size_t size, void *userdata);
 
 static size_t curl_write_func_wrap(char *buffer, size_t size, size_t nmemb, void *userdata)
 {
@@ -60,6 +62,11 @@ static size_t curl_header_func_wrap(char *buffer, size_t size, size_t nmemb, voi
 	return goHeaderCallback(buffer, size, nmemb, userdata);
 }
 
+static int curl_debug_func_wrap(CURL *handle, curl_infotype type, char *data, size_t size, void *userdata)
+{
+	return goDebugCallback(type, data, size, userdata);
+}
+
 static void *curl_write_func()
 {
 	return (void *)&curl_write_func_wrap;
@@ -73,6 +80,11 @@ static void *curl_read_func()
 static void *curl_header_func()
 {
 	return (void *)&curl_header_func_wrap;
+}
+
+static void *curl_debug_func()
+{
+	return (void *)&curl_debug_func_wrap;
 }
 */
 import "C"
@@ -97,16 +109,29 @@ const (
 	INFO_TYPEMAK = C.CURLINFO_TYPEMASK
 )
 
+// curl_infotype
+const (
+	INFO_TEXT         = C.CURLINFO_TEXT
+	INFO_HEADER_IN    = C.CURLINFO_HEADER_IN
+	INFO_HEADER_OUT   = C.CURLINFO_HEADER_OUT
+	INFO_DATA_IN      = C.CURLINFO_DATA_IN
+	INFO_DATA_OUT     = C.CURLINFO_DATA_OUT
+	INFO_SSL_DATA_IN  = C.CURLINFO_SSL_DATA_IN
+	INFO_SSL_DATA_OUT = C.CURLINFO_SSL_DATA_OUT
+)
+
 type CURL struct {
-	ptr unsafe.Pointer
+	handle unsafe.Pointer
 	// curl_slist
 	headers    []unsafe.Pointer
 	writeData  interface{}
 	readData   interface{}
 	headerData interface{}
+	debugData  interface{}
 	writeFunc  *func([]byte, interface{}) int
 	readFunc   *func([]byte, interface{}) int
 	headerFunc *func([]byte, interface{}) int
+	debugFunc  *func(int, []byte, interface{}) int
 }
 
 type CURLError C.CURLcode
@@ -136,27 +161,27 @@ func NewEasy() *CURL {
 	}
 
 	curl := &CURL{}
-	curl.ptr = ptr
-	curlMap[curl.ptr] = curl
+	curl.handle = ptr
+	curlMap[curl.handle] = curl
 	return curl
 }
 
 // Deprecated
 func (curl *CURL) EasyInit() int {
-	curl.ptr = C.curl_easy_init()
-	fmt.Printf("curl.ptr: %T %v\n", curl.ptr, curl.ptr)
-	if curl.ptr == nil {
+	curl.handle = C.curl_easy_init()
+	fmt.Printf("curl.handle: %T %v\n", curl.handle, curl.handle)
+	if curl.handle == nil {
 		return -1
 	}
 
 	// curl.headers = make([]unsafe.Pointer)
-	curlMap[curl.ptr] = curl
+	curlMap[curl.handle] = curl
 	return 0
 }
 
 func (curl *CURL) EasySetopt(opt int, arg interface{}) error {
 	if arg == nil {
-		ret := C.curl_easy_setopt_ptr(curl.ptr, C.CURLoption(opt), unsafe.Pointer(nil))
+		ret := C.curl_easy_setopt_ptr(curl.handle, C.CURLoption(opt), unsafe.Pointer(nil))
 		return codeToError(ret)
 	}
 
@@ -168,12 +193,12 @@ func (curl *CURL) EasySetopt(opt int, arg interface{}) error {
 		fun := arg.(func([]byte, interface{}) int)
 		curl.writeFunc = &fun
 		ptr := C.curl_write_func()
-		ret := C.curl_easy_setopt_ptr(curl.ptr, C.CURLOPT_WRITEFUNCTION, ptr)
+		ret := C.curl_easy_setopt_ptr(curl.handle, C.CURLOPT_WRITEFUNCTION, ptr)
 		err := codeToError(ret)
 		if err != nil {
 			return err
 		}
-		ret = C.curl_easy_setopt_ptr(curl.ptr, C.CURLOPT_WRITEDATA, curl.ptr)
+		ret = C.curl_easy_setopt_ptr(curl.handle, C.CURLOPT_WRITEDATA, curl.handle)
 		return codeToError(ret)
 
 	case opt == OPT_READDATA:
@@ -183,12 +208,12 @@ func (curl *CURL) EasySetopt(opt int, arg interface{}) error {
 		fun := arg.(func([]byte, interface{}) int)
 		curl.readFunc = &fun
 		ptr := C.curl_read_func()
-		ret := C.curl_easy_setopt_ptr(curl.ptr, C.CURLOPT_READFUNCTION, ptr)
+		ret := C.curl_easy_setopt_ptr(curl.handle, C.CURLOPT_READFUNCTION, ptr)
 		err := codeToError(ret)
 		if err != nil {
 			return err
 		}
-		ret = C.curl_easy_setopt_ptr(curl.ptr, C.CURLOPT_READDATA, curl.ptr)
+		ret = C.curl_easy_setopt_ptr(curl.handle, C.CURLOPT_READDATA, curl.handle)
 		return codeToError(ret)
 
 	case opt == OPT_HEADERDATA:
@@ -198,12 +223,27 @@ func (curl *CURL) EasySetopt(opt int, arg interface{}) error {
 		fun := arg.(func([]byte, interface{}) int)
 		curl.headerFunc = &fun
 		ptr := C.curl_header_func()
-		ret := C.curl_easy_setopt_ptr(curl.ptr, C.CURLOPT_HEADERFUNCTION, ptr)
+		ret := C.curl_easy_setopt_ptr(curl.handle, C.CURLOPT_HEADERFUNCTION, ptr)
 		err := codeToError(ret)
 		if err != nil {
 			return err
 		}
-		ret = C.curl_easy_setopt_ptr(curl.ptr, C.CURLOPT_HEADERDATA, curl.ptr)
+		ret = C.curl_easy_setopt_ptr(curl.handle, C.CURLOPT_HEADERDATA, curl.handle)
+		return codeToError(ret)
+
+	case opt == OPT_DEBUGDATA:
+		curl.debugData = arg
+
+	case opt == OPT_DEBUGFUNCTION:
+		fun := arg.(func(int, []byte, interface{}) int)
+		curl.debugFunc = &fun
+		ptr := C.curl_debug_func()
+		ret := C.curl_easy_setopt_ptr(curl.handle, C.CURLOPT_DEBUGFUNCTION, ptr)
+		err := codeToError(ret)
+		if err != nil {
+			return err
+		}
+		ret = C.curl_easy_setopt_ptr(curl.handle, C.CURLOPT_DEBUGDATA, curl.handle)
 		return codeToError(ret)
 
 	case opt >= OPTTYPE_OFF_T:
@@ -218,7 +258,7 @@ func (curl *CURL) EasySetopt(opt int, arg interface{}) error {
 		default:
 			fmt.Printf("Not implemented, %T, %v\n", arg, arg)
 		}
-		ret := C.curl_easy_setopt_off_t(curl.ptr, C.CURLoption(opt), val)
+		ret := C.curl_easy_setopt_off_t(curl.handle, C.CURLoption(opt), val)
 		return codeToError(ret)
 
 	case opt >= OPTTYPE_FUNCTIONPOINT:
@@ -231,7 +271,7 @@ func (curl *CURL) EasySetopt(opt int, arg interface{}) error {
 		case string:
 			cstr := C.CString(arg.(string))
 			defer C.free(unsafe.Pointer(cstr))
-			ret := C.curl_easy_setopt_str(curl.ptr, C.CURLoption(opt), cstr)
+			ret := C.curl_easy_setopt_str(curl.handle, C.CURLoption(opt), cstr)
 			return codeToError(ret)
 
 		case []string:
@@ -249,7 +289,7 @@ func (curl *CURL) EasySetopt(opt int, arg interface{}) error {
 				// fmt.Printf("header: %T, %v\n", hdr, hdr)
 				list = C.curl_slist_append(list, hdr)
 			}
-			ret := C.curl_easy_setopt_ptr(curl.ptr, C.CURLOPT_HTTPHEADER, unsafe.Pointer(list))
+			ret := C.curl_easy_setopt_ptr(curl.handle, C.CURLOPT_HTTPHEADER, unsafe.Pointer(list))
 			err := codeToError(ret)
 			if err != nil {
 				return err
@@ -278,7 +318,7 @@ func (curl *CURL) EasySetopt(opt int, arg interface{}) error {
 		default:
 			fmt.Printf("Not implemented, %T, %v\n", arg, arg)
 		}
-		ret := C.curl_easy_setopt_long(curl.ptr, C.CURLoption(opt), val)
+		ret := C.curl_easy_setopt_long(curl.handle, C.CURLoption(opt), val)
 		// fmt.Printf("curl_easy_setopt_long return %d\n", ret)
 		return codeToError(ret)
 
@@ -291,8 +331,8 @@ func (curl *CURL) EasySetopt(opt int, arg interface{}) error {
 }
 
 func (curl *CURL) EasyPerform() error {
-	// fmt.Printf("%T %v\n", curl.ptr, curl.ptr)
-	ret := C.curl_easy_perform(curl.ptr)
+	// fmt.Printf("%T %v\n", curl.handle, curl.handle)
+	ret := C.curl_easy_perform(curl.handle)
 	return codeToError(ret)
 }
 
@@ -303,36 +343,36 @@ func (curl *CURL) EasyCleanup() {
 		// C.curl_slist_free_all((*C.struct_curl_slist)header)
 		C.curl_slist_free_all((*C.struct_curl_slist)(header))
 	}
-	C.curl_easy_cleanup(curl.ptr)
-	curl.ptr = nil
+	C.curl_easy_cleanup(curl.handle)
+	curl.handle = nil
 }
 
 func (curl *CURL) EasyGetinfo(info int) (ret interface{}, err error) {
 	switch info & INFO_TYPEMAK {
 	case INFO_STRING:
 		var str *C.char
-		code := C.curl_easy_getinfo_str(curl.ptr, C.CURLINFO(info), &str)
+		code := C.curl_easy_getinfo_str(curl.handle, C.CURLINFO(info), &str)
 		if code == C.CURLE_OK {
 			return C.GoString(str), nil
 		}
 
 	case INFO_LONG:
 		var val C.long
-		code := C.curl_easy_getinfo_long(curl.ptr, C.CURLINFO(info), &val)
+		code := C.curl_easy_getinfo_long(curl.handle, C.CURLINFO(info), &val)
 		if code == C.CURLE_OK {
 			return int(val), nil
 		}
 
 	case INFO_DOUBLE:
 		var val C.double
-		code := C.curl_easy_getinfo_double(curl.ptr, C.CURLINFO(info), &val)
+		code := C.curl_easy_getinfo_double(curl.handle, C.CURLINFO(info), &val)
 		if code == C.CURLE_OK {
 			return float64(val), nil
 		}
 
 	case INFO_SLIST:
 		var list *C.struct_curl_slist = nil
-		code := C.curl_easy_getinfo_slist(curl.ptr, C.CURLINFO(info), &list)
+		code := C.curl_easy_getinfo_slist(curl.handle, C.CURLINFO(info), &list)
 		if code == C.CURLE_OK {
 			var tmp *C.struct_curl_slist = list
 			var ret []string
@@ -384,4 +424,11 @@ func goHeaderCallback(buffer *C.char, size C.size_t, nmemb C.size_t, userdata un
 	// fmt.Printf("curl: %T, %v\n", curl, curl)
 	buf := C.GoBytes(unsafe.Pointer(buffer), C.int(size*nmemb))
 	return C.size_t((*curl.headerFunc)(buf, curl.headerData))
+}
+
+//export goDebugCallback
+func goDebugCallback(info C.curl_infotype, data *C.char, size C.size_t, userdata unsafe.Pointer) C.int {
+	curl := curlMap[userdata]
+	buf := C.GoBytes(unsafe.Pointer(data), C.int(size))
+	return C.int((*curl.debugFunc)(int(info), buf, curl.debugData))
 }
