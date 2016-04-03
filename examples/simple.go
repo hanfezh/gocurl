@@ -4,6 +4,10 @@ import "fmt"
 import "github.com/ufengzhu/gocurl/curl"
 
 func main() {
+	fmt.Printf("CURL version: %s\n", curl.Version())
+	info := curl.VersionInfo()
+	fmt.Printf("CURL version: %v\n", info)
+
 	easy := curl.NewEasy()
 	defer easy.EasyCleanup()
 
