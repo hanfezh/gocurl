@@ -10,19 +10,19 @@ func main() {
 		fmt.Printf("NewEasy failed\n")
 		return
 	}
-	defer easy.EasyCleanup()
+	defer easy.Cleanup()
 
-	easy.EasySetopt(curl.OPT_URL, "http://example.com")
-	easy.EasySetopt(curl.OPT_VERBOSE, 1)
-	easy.EasySetopt(curl.OPT_POSTFIELDS, postthis)
+	easy.Setopt(curl.OPT_URL, "http://example.com")
+	easy.Setopt(curl.OPT_VERBOSE, 1)
+	easy.Setopt(curl.OPT_POSTFIELDS, postthis)
 
 	/* if we don't provide POSTFIELDSIZE, libcurl will strlen() by itself */
-	easy.EasySetopt(curl.OPT_POSTFIELDSIZE, len(postthis))
+	easy.Setopt(curl.OPT_POSTFIELDSIZE, len(postthis))
 
 	/* Perform the request, res will get the return code */
-	err := easy.EasyPerform()
+	err := easy.Perform()
 	/* Check for errors */
 	if err != nil {
-		fmt.Printf("EasyPerform failed: %v\n", err)
+		fmt.Printf("Perform failed: %v\n", err)
 	}
 }

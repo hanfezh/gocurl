@@ -12,11 +12,11 @@ func main() {
 	easy := curl.NewEasy()
 
 	defer multi.Cleanup()
-	defer easy.EasyCleanup()
+	defer easy.Cleanup()
 
-	// easy.EasySetopt(curl.OPT_URL, "http://www.example.com/")
-	easy.EasySetopt(curl.OPT_URL, "http://www.google.com/")
-	easy.EasySetopt(curl.OPT_VERBOSE, 1)
+	// easy.Setopt(curl.OPT_URL, "http://www.example.com/")
+	easy.Setopt(curl.OPT_URL, "http://www.google.com/")
+	easy.Setopt(curl.OPT_VERBOSE, 1)
 
 	/* add the individual transfers */
 	multi.AddHandle(easy)

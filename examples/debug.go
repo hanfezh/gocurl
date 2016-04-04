@@ -101,24 +101,24 @@ func main() {
 	conf := config{traceAscii: true}
 
 	easy := curl.NewEasy()
-	defer easy.EasyCleanup()
+	defer easy.Cleanup()
 
-	easy.EasySetopt(curl.OPT_DEBUGFUNCTION, myTrace)
-	easy.EasySetopt(curl.OPT_DEBUGDATA, &conf)
+	easy.Setopt(curl.OPT_DEBUGFUNCTION, myTrace)
+	easy.Setopt(curl.OPT_DEBUGDATA, &conf)
 
 	/* the DEBUGFUNCTION has no effect until we enable VERBOSE */
-	easy.EasySetopt(curl.OPT_VERBOSE, 1)
+	easy.Setopt(curl.OPT_VERBOSE, 1)
 
 	/* example.com is redirected, so we tell libcurl to follow redirection */
-	easy.EasySetopt(curl.OPT_FOLLOWLOCATION, 1)
+	easy.Setopt(curl.OPT_FOLLOWLOCATION, 1)
 
-	easy.EasySetopt(curl.OPT_URL, "http://example.com/")
-	// easy.EasySetopt(curl.OPT_URL, "http://www.google.com")
+	easy.Setopt(curl.OPT_URL, "http://example.com/")
+	// easy.Setopt(curl.OPT_URL, "http://www.google.com")
 
-	err := easy.EasyPerform()
+	err := easy.Perform()
 	if err != nil {
 
 		/* Check for errors */
-		fmt.Printf("EasyPerform failed: %v\n", err)
+		fmt.Printf("Perform failed: %v\n", err)
 	}
 }

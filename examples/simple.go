@@ -9,17 +9,17 @@ func main() {
 	fmt.Printf("CURL version: %v\n", info)
 
 	easy := curl.NewEasy()
-	defer easy.EasyCleanup()
+	defer easy.Cleanup()
 
-	easy.EasySetopt(curl.OPT_URL, "http://example.com")
+	easy.Setopt(curl.OPT_URL, "http://example.com")
 	/* example.com is redirected, so we tell libcurl to follow redirection */
-	easy.EasySetopt(curl.OPT_FOLLOWLOCATION, 1)
-	easy.EasySetopt(curl.OPT_VERBOSE, 1)
+	easy.Setopt(curl.OPT_FOLLOWLOCATION, 1)
+	easy.Setopt(curl.OPT_VERBOSE, 1)
 
 	/* Perform the request, res will get the return code */
-	err := easy.EasyPerform()
+	err := easy.Perform()
 	/* Check for errors */
 	if err != nil {
-		fmt.Printf("EasyPerform failed: %v\n", err)
+		fmt.Printf("Perform failed: %v\n", err)
 	}
 }

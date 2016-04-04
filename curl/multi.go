@@ -145,18 +145,18 @@ func (multi *Multi) Setopt(opt int, arg interface{}) error {
 
 	default:
 		fmt.Printf("Invalid option: %d\n", opt)
-		return CURLError(E_UNKNOWN_OPTION)
+		return MultiError(E_UNKNOWN_OPTION)
 	}
 
 	return nil
 }
 
-func (multi *Multi) AddHandle(easy *CURL) error {
+func (multi *Multi) AddHandle(easy *Curl) error {
 	ret := C.curl_multi_add_handle(multi.handle, easy.handle)
 	return codeToMError(ret)
 }
 
-func (multi *Multi) RemoveHandle(easy *CURL) error {
+func (multi *Multi) RemoveHandle(easy *Curl) error {
 	ret := C.curl_multi_remove_handle(multi.handle, easy.handle)
 	return codeToMError(ret)
 }

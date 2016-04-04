@@ -120,7 +120,7 @@ const (
 	INFO_SSL_DATA_OUT = C.CURLINFO_SSL_DATA_OUT
 )
 
-type CURL struct {
+type Curl struct {
 	handle unsafe.Pointer
 	// curl_slist
 	headers    []unsafe.Pointer
@@ -134,52 +134,39 @@ type CURL struct {
 	debugFunc  *func(int, []byte, interface{}) int
 }
 
-type CURLError C.CURLcode
+type CurlError C.CURLcode
 
-var curlMap = make(map[unsafe.Pointer]*CURL)
+var curlMap = make(map[unsafe.Pointer]*Curl)
 
-// curlMap := make(map[uintptr]*CURL)
+// curlMap := make(map[uintptr]*Curl)
 
-func (code CURLError) Error() string {
+func (code CurlError) Error() string {
 	str := C.GoString(C.curl_easy_strerror(C.CURLcode(code)))
-	fmt.Printf("CURL error[%d]: %s\n", code, str)
-	return fmt.Sprintf("CURL error[%d]: %s", code, str)
+	fmt.Printf("Curl error[%d]: %s\n", code, str)
+	return fmt.Sprintf("Curl error[%d]: %s", code, str)
 }
 
 func codeToError(code C.CURLcode) error {
 	if code != C.CURLE_OK {
-		return CURLError(code)
+		return CurlError(code)
 	}
 
 	return nil
 }
 
-func NewEasy() *CURL {
+func NewEasy() *Curl {
 	ptr := C.curl_easy_init()
 	if ptr == nil {
 		return nil
 	}
 
-	curl := &CURL{}
+	curl := &Curl{}
 	curl.handle = ptr
 	curlMap[curl.handle] = curl
 	return curl
 }
 
-// Deprecated
-func (curl *CURL) EasyInit() int {
-	curl.handle = C.curl_easy_init()
-	fmt.Printf("curl.handle: %T %v\n", curl.handle, curl.handle)
-	if curl.handle == nil {
-		return -1
-	}
-
-	// curl.headers = make([]unsafe.Pointer)
-	curlMap[curl.handle] = curl
-	return 0
-}
-
-func (curl *CURL) EasySetopt(opt int, arg interface{}) error {
+func (curl *Curl) Setopt(opt int, arg interface{}) error {
 	if arg == nil {
 		ret := C.curl_easy_setopt_ptr(curl.handle, C.CURLoption(opt), unsafe.Pointer(nil))
 		return codeToError(ret)
@@ -324,19 +311,19 @@ func (curl *CURL) EasySetopt(opt int, arg interface{}) error {
 
 	default:
 		fmt.Printf("Invalid option: %d\n", opt)
-		return CURLError(E_UNKNOWN_OPTION)
+		return CurlError(E_UNKNOWN_OPTION)
 	}
 
 	return nil
 }
 
-func (curl *CURL) EasyPerform() error {
+func (curl *Curl) Perform() error {
 	// fmt.Printf("%T %v\n", curl.handle, curl.handle)
 	ret := C.curl_easy_perform(curl.handle)
 	return codeToError(ret)
 }
 
-func (curl *CURL) EasyCleanup() {
+func (curl *Curl) Cleanup() {
 	fmt.Printf("EasyCleanup headers: len = %d\n", len(curl.headers))
 	for _, header := range curl.headers {
 		fmt.Printf("EasyCleanup header: %T, %v\n", header, header)
@@ -347,7 +334,7 @@ func (curl *CURL) EasyCleanup() {
 	curl.handle = nil
 }
 
-func (curl *CURL) EasyGetinfo(info int) (ret interface{}, err error) {
+func (curl *Curl) Getinfo(info int) (ret interface{}, err error) {
 	switch info & INFO_TYPEMAK {
 	case INFO_STRING:
 		var str *C.char

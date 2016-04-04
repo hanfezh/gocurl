@@ -17,19 +17,19 @@ func main() {
 	var url string = "http://www.google.com"
 
 	easy := curl.NewEasy()
-	defer easy.EasyCleanup()
+	defer easy.Cleanup()
 
-	easy.EasySetopt(curl.OPT_URL, url)
-	// easy.EasySetopt(curl.OPT_VERBOSE, 1)
-	easy.EasySetopt(curl.OPT_HEADERFUNCTION, myHeaderFunc)
-	easy.EasySetopt(curl.OPT_WRITEFUNCTION, myWriteFunc)
+	easy.Setopt(curl.OPT_URL, url)
+	// easy.Setopt(curl.OPT_VERBOSE, 1)
+	easy.Setopt(curl.OPT_HEADERFUNCTION, myHeaderFunc)
+	easy.Setopt(curl.OPT_WRITEFUNCTION, myWriteFunc)
 
-	err := easy.EasyPerform()
-	fmt.Printf("EasyPerform return %v\n", err)
+	err := easy.Perform()
+	fmt.Printf("Perform return %v\n", err)
 
-	eurl, err := easy.EasyGetinfo(curl.INFO_EFFECTIVE_URL)
+	eurl, err := easy.Getinfo(curl.INFO_EFFECTIVE_URL)
 	fmt.Printf("eurl: %v, err: %v\n", eurl, err)
 
-	elist, err := easy.EasyGetinfo(curl.INFO_COOKIELIST)
+	elist, err := easy.Getinfo(curl.INFO_COOKIELIST)
 	fmt.Printf("elist: %v, err: %v\n", elist, err)
 }
