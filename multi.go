@@ -8,6 +8,21 @@ package gocurl
 #include <string.h>
 #include <curl/curl.h>
 
+#include <sys/select.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+// #define __GOCURL_DEBUG__
+
+#ifdef __GOCURL_DEBUG__
+#define dprintf(fmt, args...) do { \
+	printf("%s():%d " fmt, __FUNCTION__, __LINE__, ##args); \
+} while (0)
+#else
+#define dprintf(fmt, args...)
+#endif
+
 static CURLMcode curl_multi_setopt_long(CURLM *handle, CURLMoption option, long pointer) {
 	return curl_multi_setopt(handle, option, pointer);
 }
@@ -24,8 +39,46 @@ static CURLMcode curl_multi_setopt_ptr(CURLM *handle, CURLMoption option, void *
 	return curl_multi_setopt(handle, option, pointer);
 }
 
-static CURLMcode curl_multi_select(CURLM *handle, long ms) {
-	// TODO
+static CURLMcode curl_multi_select(CURLM *handle, long ms, int *num) {
+	struct timeval timeout;
+	CURLMcode mc;
+	int ret;
+
+	fd_set fdread;
+	fd_set fdwrite;
+	fd_set fdexcep;
+	int maxfd = -1;
+
+	FD_ZERO(&fdread);
+	FD_ZERO(&fdwrite);
+	FD_ZERO(&fdexcep);
+
+	timeout.tv_sec = ms / 1000;
+	timeout.tv_usec = (ms % 1000) * 1000;
+
+	mc = curl_multi_fdset(handle, &fdread, &fdwrite, &fdexcep, &maxfd);
+	dprintf("mc = %d, maxfd = %d\n", mc, maxfd);
+	if(mc != CURLM_OK) {
+		dprintf("curl_multi_fdset failed, mc = %d\n", mc);
+		return mc;
+	}
+
+	if (maxfd == -1) {
+		dprintf("maxfd = -1\n");
+		*num = 0;
+		return CURLM_OK;
+	}
+
+	ret = select(maxfd+1, &fdread, &fdwrite, &fdexcep, &timeout);
+	if (ret == -1) {
+		return CURLM_BAD_SOCKET;
+	} else if (ret == 0) {
+		*num = 0;
+		return CURLM_OK;
+	}
+
+	*num = ret;
+	return CURLM_OK;
 }
 */
 import "C"
@@ -161,11 +214,17 @@ func (multi *Multi) RemoveHandle(easy *Curl) error {
 	return codeToMError(ret)
 }
 
-// TODO
-// func (multi *Multi) Select(ms int) error {
-// 	ret := C.curl_multi_select(multi.handle, C.long(ms))
-// 	return codeToMError
-// }
+func (multi *Multi) Select(ms int) (int, error) {
+	var num C.int = 0
+	ret := C.curl_multi_select(multi.handle, C.long(ms), &num)
+	return int(num), codeToMError(ret)
+}
+
+func (multi *Multi) Timeout() (int, error) {
+	var ms C.long = 0
+	ret := C.curl_multi_timeout(multi.handle, &ms)
+	return int(ms), codeToMError(ret)
+}
 
 // timeout in millisecond
 func (multi *Multi) Wait(timeout int) (int, error) {
