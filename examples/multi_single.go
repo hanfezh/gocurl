@@ -2,21 +2,21 @@ package main
 
 import (
 	"fmt"
-	"github.com/ufengzhu/gocurl/curl"
+	"github.com/ufengzhu/gocurl"
 	"os"
 	"time"
 )
 
 func main() {
-	multi := curl.NewMulti()
-	easy := curl.NewEasy()
+	multi := gocurl.NewMulti()
+	easy := gocurl.NewEasy()
 
 	defer multi.Cleanup()
 	defer easy.Cleanup()
 
-	// easy.Setopt(curl.OPT_URL, "http://www.example.com/")
-	easy.Setopt(curl.OPT_URL, "http://www.google.com/")
-	easy.Setopt(curl.OPT_VERBOSE, 1)
+	// easy.Setopt(gocurl.OPT_URL, "http://www.example.com/")
+	easy.Setopt(gocurl.OPT_URL, "http://www.google.com/")
+	easy.Setopt(gocurl.OPT_VERBOSE, 1)
 
 	/* add the individual transfers */
 	multi.AddHandle(easy)

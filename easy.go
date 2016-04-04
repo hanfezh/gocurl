@@ -1,4 +1,4 @@
-package curl
+package gocurl
 
 // #cgo CFLAGS: -I/usr/include
 // #cgo LDFLAGS: -lcurl
@@ -122,7 +122,7 @@ const (
 
 // CURL_GLOBAL_XXX
 const (
-	GLOBAL_ALL       = C.CURL_GLOBAL_SSL
+	GLOBAL_SSL       = C.CURL_GLOBAL_SSL
 	GLOBAL_WIN32     = C.CURL_GLOBAL_WIN32
 	GLOBAL_ALL       = C.CURL_GLOBAL_ALL
 	GLOBAL_NOTHING   = C.CURL_GLOBAL_NOTHING

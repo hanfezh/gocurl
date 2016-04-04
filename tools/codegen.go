@@ -81,7 +81,7 @@ func handleFile(inPath string, outPath string) int {
 	}
 
 	// Init output
-	writer.WriteString("package curl\n")
+	writer.WriteString("package gocurl\n")
 	writer.WriteString("// #include <curl/curl.h>\n")
 	writer.WriteString("import \"C\"\n\n")
 

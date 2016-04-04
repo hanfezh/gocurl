@@ -1,4 +1,4 @@
-package curl
+package gocurl
 
 // #cgo CFLAGS: -I/usr/include
 // #cgo LDFLAGS: -lcurl

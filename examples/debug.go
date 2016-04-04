@@ -2,7 +2,7 @@ package main
 
 import "fmt"
 import "os"
-import "github.com/ufengzhu/gocurl/curl"
+import "github.com/ufengzhu/gocurl"
 
 type config struct {
 	traceAscii bool
@@ -65,29 +65,29 @@ func myTrace(info int, data []byte, userdata interface{}) int {
 	var text string
 
 	switch info {
-	case curl.INFO_TEXT:
+	case gocurl.INFO_TEXT:
 		fmt.Fprintf(os.Stderr, "== Info: %s", string(data))
 		return 0
 
 	default: /* in case a new one is introduced to shock us */
 		return 0
 
-	case curl.INFO_HEADER_OUT:
+	case gocurl.INFO_HEADER_OUT:
 		text = "=> Send header"
 
-	case curl.INFO_DATA_OUT:
+	case gocurl.INFO_DATA_OUT:
 		text = "=> Send data"
 
-	case curl.INFO_SSL_DATA_OUT:
+	case gocurl.INFO_SSL_DATA_OUT:
 		text = "=> Send SSL data"
 
-	case curl.INFO_HEADER_IN:
+	case gocurl.INFO_HEADER_IN:
 		text = "<= Recv header"
 
-	case curl.INFO_DATA_IN:
+	case gocurl.INFO_DATA_IN:
 		text = "<= Recv data"
 
-	case curl.INFO_SSL_DATA_IN:
+	case gocurl.INFO_SSL_DATA_IN:
 		text = "<= Recv SSL data"
 	}
 
@@ -100,20 +100,20 @@ func main() {
 	/* enable ascii tracing */
 	conf := config{traceAscii: true}
 
-	easy := curl.NewEasy()
+	easy := gocurl.NewEasy()
 	defer easy.Cleanup()
 
-	easy.Setopt(curl.OPT_DEBUGFUNCTION, myTrace)
-	easy.Setopt(curl.OPT_DEBUGDATA, &conf)
+	easy.Setopt(gocurl.OPT_DEBUGFUNCTION, myTrace)
+	easy.Setopt(gocurl.OPT_DEBUGDATA, &conf)
 
 	/* the DEBUGFUNCTION has no effect until we enable VERBOSE */
-	easy.Setopt(curl.OPT_VERBOSE, 1)
+	easy.Setopt(gocurl.OPT_VERBOSE, 1)
 
 	/* example.com is redirected, so we tell libcurl to follow redirection */
-	easy.Setopt(curl.OPT_FOLLOWLOCATION, 1)
+	easy.Setopt(gocurl.OPT_FOLLOWLOCATION, 1)
 
-	easy.Setopt(curl.OPT_URL, "http://example.com/")
-	// easy.Setopt(curl.OPT_URL, "http://www.google.com")
+	easy.Setopt(gocurl.OPT_URL, "http://example.com/")
+	// easy.Setopt(gocurl.OPT_URL, "http://www.google.com")
 
 	err := easy.Perform()
 	if err != nil {
