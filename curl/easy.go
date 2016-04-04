@@ -120,6 +120,16 @@ const (
 	INFO_SSL_DATA_OUT = C.CURLINFO_SSL_DATA_OUT
 )
 
+// CURL_GLOBAL_XXX
+const (
+	GLOBAL_ALL       = C.CURL_GLOBAL_SSL
+	GLOBAL_WIN32     = C.CURL_GLOBAL_WIN32
+	GLOBAL_ALL       = C.CURL_GLOBAL_ALL
+	GLOBAL_NOTHING   = C.CURL_GLOBAL_NOTHING
+	GLOBAL_DEFAULT   = C.CURL_GLOBAL_DEFAULT
+	GLOBAL_ACK_EINTR = C.CURL_GLOBAL_ACK_EINTR
+)
+
 type Curl struct {
 	handle unsafe.Pointer
 	// curl_slist
@@ -381,6 +391,15 @@ func (curl *Curl) Getinfo(info int) (ret interface{}, err error) {
 	}
 
 	return nil, fmt.Errorf("Failed to get info: %d", info)
+}
+
+func GlobalInit(flags int) error {
+	ret := C.curl_global_init(C.long(flags))
+	return codeToError(ret)
+}
+
+func GlobalCleanup() {
+	C.curl_global_cleanup()
 }
 
 //export goWriteCallback
