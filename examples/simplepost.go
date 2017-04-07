@@ -1,7 +1,7 @@
 package main
 
 import "fmt"
-import "github.com/ufengzhu/gocurl"
+import "github.com/ufengzh/gocurl"
 
 func main() {
 	postthis := "moo mooo moo moo"

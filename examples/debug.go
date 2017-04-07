@@ -2,7 +2,7 @@ package main
 
 import "fmt"
 import "os"
-import "github.com/ufengzhu/gocurl"
+import "github.com/ufengzh/gocurl"
 
 type config struct {
 	traceAscii bool

@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/ufengzhu/gocurl"
+	"github.com/ufengzh/gocurl"
 	"time"
 )
 

@@ -1,7 +1,7 @@
 package main
 
 import "fmt"
-import "github.com/ufengzhu/gocurl"
+import "github.com/ufengzh/gocurl"
 
 func myWriteFunc(data []byte, userdata interface{}) int {
 	// fmt.Printf("Get data: type = %T, len = %d\n", data, len(data))

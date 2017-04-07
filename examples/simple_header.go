@@ -1,7 +1,7 @@
 package main
 
 import "fmt"
-import "github.com/ufengzhu/gocurl"
+import "github.com/ufengzh/gocurl"
 
 func myHeaderFunc(data []byte, userdata interface{}) int {
 	fmt.Printf("Recv headers: %v", string(data))
